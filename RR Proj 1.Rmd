@@ -1,0 +1,128 @@
+---
+title: "JHU RR"
+author: "Shekhar"
+date: "Friday, August 14, 2015"
+output: html_document
+---
+
+This is an R Markdown document for the Reproducable Research project #1.
+
+Loading and preprocessing the data:
+
+Show any code that is needed to
+
+   * Load the data (i.e. read.csv())
+
+   * Process/transform the data (if necessary) into a format suitable for analysis
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+setwd("C:/Users/Shekhar/Documents/Johns Hopkins/Data")
+df1 <- read.csv("activity.csv")
+df1 <- tbl_df(df1) # store original data in a better dplyr format
+df2 <- na.omit(df1)# remove NA values and store in df2
+
+df2_by_day <- group_by(df2,date)
+df3 <- summarize(df2_by_day,sum(steps))
+names(df3) <- c("date","steps")
+```
+### Total number of steps taken each day
+```{r}
+kable(df3)
+```
+
+### Histogram of Total number of steps taken each day
+```{r}
+hist(df3$steps)
+```
+
+
+`r print("")`
+```{r}
+steps_mean <- as.integer(round(mean(df3$steps),digits=0))
+steps_median <- median(df3$steps)
+```
+
+Mean of total number of steps per day is `r steps_mean`
+Median of total number of steps per day is `r steps_median`
+
+  
+### Average Daily Activity Pattern
+```{r}
+df2_by_interval <- group_by(df2,interval)
+df4 <- summarize(df2_by_interval,mean(steps))
+names(df4) <- c("interval","mean_steps")
+with(df4,plot(interval,mean_steps,type="l"))
+```
+
+### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps
+```{r}
+i <- which.max(df4$mean_steps)
+max_steps <- round(max(df4$mean_steps),digits=2)
+interval_max_steps <- df4$interval[i]
+```
+#### The maximum number of steps is `r max_steps`, and the interval that contains this max value is `r interval_max_steps`
+
+### Imputing Missing Values
+```{r}
+original_rows <- nrow(df1)
+na_rows <- nrow(df1) - nrow(df2)
+```
+#### There are `r original_rows` rows in the original Excel data file, of which `r na_rows` rows have missing (NA) values 
+
+### Devise a strategy for filling in all of the missing values in the dataset. The strategy uses the mean for that 5-minute interval.
+
+Create a new dataset (df6) that is equal to the original dataset (df1) but with the missing data filled in.
+
+```{r}
+ix <- is.na(df1$steps)
+df5 <- left_join(df1,df4,by="interval")
+head(df5)
+df5$steps[ix] <- df5$mean_steps[ix]
+head(df5)
+df6 <- df5[,1:3]
+head(df6)
+```
+
+### Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day
+
+```{r}
+hist(df1$steps)
+```
+
+`r print("")`
+```{r}
+steps_mean <- as.integer(round(mean(df6$steps),digits=0))
+steps_median <- median(df6$steps)
+```
+
+#### Mean of total number of steps per day with this data is `r steps_mean`
+#### Median of total number of steps per day is `r steps_median`
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+#### Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+```{r}
+df6 <- within(df6, {
+       f_wday <- as.factor(ifelse(as.POSIXlt(date)$wday %in% c(6,7),"weekend","weekday"))
+})
+str(df6)
+```
+
+### Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+```{r}
+d1 <- df6
+d1_by_wday_interval <- group_by(d1,f_wday,interval)
+d2 <- summarize(d1_by_wday_interval,mean(steps))
+names(d2) <- c("f_wday","interval","mean_steps")
+head(d2)
+g <- ggplot(d2, aes(interval,mean_steps))
+g <- g + geom_line() + facet_grid(f_wday ~ .)
+print(g)
+```
+
+
